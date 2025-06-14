@@ -1,0 +1,150 @@
+local playersService = game:GetService("Players")
+local currentCamera = workspace.CurrentCamera
+local uis = game:GetService("UserInputService")
+local rs = game:GetService("RunService")
+local lplr = playersService.LocalPlayer
+
+
+_G.plrshead = 5
+getgenv().aimAssistStrength = 0.00
+getgenv().aimAssistEnabled = false
+
+
+local function isUsingControllerOrMobile()
+    local lastInput = uis:GetLastInputType()
+    return lastInput == Enum.UserInputType.Gamepad1 or lastInput == Enum.UserInputType.Touch
+end
+
+
+local function isTargetInFOV(target)
+    if not currentCamera then return false end
+    local cameraPosition = currentCamera.CFrame.Position
+    local cameraLookVector = currentCamera.CFrame.LookVector
+    local directionToTarget = (target.Position - cameraPosition).Unit
+    local angle = math.deg(math.acos(cameraLookVector:Dot(directionToTarget)))
+    return angle <= 12.5
+end
+
+
+local function findClosestTarget()
+    local closestTarget = nil
+    local cdist = math.huge
+
+    for _, plr in ipairs(playersService:GetPlayers()) do
+        if plr ~= lplr and plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            local tp = plr.Character:FindFirstChild("Head") or plr.Character.PrimaryPart
+            if tp then
+                local dist = (tp.Position - currentCamera.CFrame.Position).Magnitude
+                if dist < cdist and isTargetInFOV(tp) then
+                    cdist = dist
+                    closestTarget = tp
+                end
+            end
+        end
+    end
+
+    return closestTarget
+end
+
+
+local function applyAimAssistAndKBM(dt)
+    if not currentCamera or not getgenv().aimAssistEnabled then return end
+
+    local t = findClosestTarget()
+    if t then
+        local cameraPosition = currentCamera.CFrame.Position
+        local currentLookVector = currentCamera.CFrame.LookVector
+        local desiredLookVector = (t.Position - cameraPosition).Unit
+        local adjustedLookVector = currentLookVector:Lerp(desiredLookVector, getgenv().aimAssistStrength * dt * 60)
+        currentCamera.CFrame = CFrame.new(cameraPosition, cameraPosition + adjustedLookVector)
+        print("Aim Assist Applied to Target:", t.Name)
+
+        for _, plr in ipairs(playersService:GetPlayers()) do
+            if plr ~= lplr and plr.Character and plr.Character:FindFirstChild("Head") then
+                local h = plr.Character.Head
+                local size = _G.plrshead
+                h.Size = isTargetInFOV(h) and Vector3.new(size, size, size) or Vector3.new(0, 0, 0)
+                h.Transparency = 1
+                h.CanCollide = false
+            end
+        end
+    else
+        print("No Target Found")
+    end
+end
+
+
+uis.InputBegan:Connect(function(input, gameProcessedEvent)
+    if not gameProcessedEvent then
+        if input.KeyCode == Enum.KeyCode.DPadDown then
+            getgenv().aimAssistStrength = math.max(0, getgenv().aimAssistStrength - 0.01)
+            print("Aim Assist Strength Decreased:", getgenv().aimAssistStrength)
+        elseif input.KeyCode == Enum.KeyCode.DPadRight then
+            getgenv().aimAssistStrength = math.min(1, getgenv().aimAssistStrength + 0.01)
+            print("Aim Assist Strength Increased:", getgenv().aimAssistStrength)
+        end
+    end
+end)
+
+
+rs.RenderStepped:Connect(function(dt)
+    applyAimAssistAndKBM(dt)
+end)
+
+
+local Bracket = loadstring(game:HttpGet("https://raw.githubusercontent.com/AlexR32/Bracket/main/BracketV32.lua"))()
+Bracket:Notification()
+Bracket:Notification2()
+
+
+local Window = Bracket:Window({
+    Name = "Aim Assist Config",
+    Enabled = true,
+    Color = Color3.new(1, 0.5, 0.25),
+    Size = UDim2.new(0, 496, 0, 496),
+    Position = UDim2.new(0.5, -248, 0.5, -248)
+})
+
+local Tab = Window:Tab({Name = "Aim"})
+
+
+Tab:Divider({Text = "Aim Assist Settings", Side = "Left"})
+
+Tab:Toggle({
+    Name = "Enable Aim Assist",
+    Side = "Left",
+    Value = false,
+    Callback = function(Bool)
+        getgenv().aimAssistEnabled = Bool
+        print("Aim Assist Enabled:", Bool)
+    end
+})
+
+Tab:Slider({
+    Name = "Aim Assist Strength",
+    Side = "Left",
+    Min = 0.00,
+    Max = 1.00,
+    Value = getgenv().aimAssistStrength,
+    Precise = 2,
+    Unit = "",
+    Callback = function(Number)
+        getgenv().aimAssistStrength = Number
+        print("Updated Aim Assist Strength:", Number)
+    end
+})
+
+
+local Section = Tab:Section({Name = "Advanced Settings", Side = "Right"})
+
+Section:Slider({
+    Name = "Head Hitbox Size",
+    Min = 0,
+    Max = 5,
+    Value = _G.plrshead,
+    Precise = 1,
+    Callback = function(val)
+        _G.plrshead = val
+        print("Head Hitbox Size Set To:", val)
+    end
+})
