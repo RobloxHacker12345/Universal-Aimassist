@@ -18,7 +18,7 @@ local guiVisible = true
 -- Auto-reload persistence
 local function saveAutoLoad()
     local success, err = pcall(function()
-        writefile("autoexecutor_autoload.txt", game:HttpGet("https://raw.githubusercontent.com/YOURUSERNAME/YOURREPO/main/autoloader.lua"))
+        writefile("autoexecutor_autoload.txt", game:HttpGet("https://github.com/RobloxHacker12345/Universal-Aimassist/blob/main/duhh"))
     end)
     if success then
         print("AutoExecutor: Autoload script saved!")
